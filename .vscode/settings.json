@@ -1,0 +1,4 @@
+{
+	"editor.detectIndentation": true,
+	"phpcs.executablePath": "F:\\dev\\www\\GIT\\asf\\application\\vendor\\bin\\phpcs.bat"
+}

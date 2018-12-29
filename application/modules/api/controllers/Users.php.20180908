@@ -1,0 +1,419 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+class Users extends API_Controller {
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->load->model('Users_model');
+        $this->load->model('Menus_model');
+        
+    }
+
+	public function index()
+	{
+		// API Doc page only accessible during development/testing environments
+		if (in_array(ENVIRONMENT, array('development', 'testing')))
+		{
+			$this->mBodyClass = 'swagger-section';
+			$this->render('home', 'empty');
+		}
+		else
+		{
+			redirect();
+		}
+	}
+
+
+
+
+ /**
+     * @SWG\Post(path="/users/login",
+     *   tags={"users"},
+     *   summary="Add/GET user record",
+     *   description="",
+     *   operationId="login_post",
+     *   produces={"application/xml", "application/json"},
+     *   @SWG\Parameter(
+     *     name="mobile",
+     *     in="query",
+     *     description="Phone No to get user details",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *  @SWG\Parameter(
+     *     name="city",
+     *     in="query",
+     *     description="city",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *  @SWG\Parameter(
+     *     name="role",
+     *     in="query",
+     *     description="role to post user details",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *   @SWG\Parameter(
+     *     name="x-api-key",
+     *     in="header",
+     *     description="anonymous",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *   @SWG\Response(
+     *         response=200,
+     *         description="successful operation",
+     *
+     *     ),
+     *     @SWG\Response(
+     *         response="400",
+     *         description="Invalid status value",
+     *     )
+     * )
+     */
+    public function login_post()
+    {
+       $output = array();
+       $output['status'] = 'SUCCESS';
+       $output['message'] = '';
+
+       $groups = array(
+           "FARMER"=>FARMER,
+           "SUPPLIER"=>SUPPLIER,
+           
+       );
+
+       @$user_groups = array(
+        $groups[$this->input->get_post('role')]
+       );
+
+
+       
+       if(!isset($user_groups[0])){
+            $output['status'] = 'ERROR';
+            $output['message'] = 'Invalid Role';
+            $this->response($output, REST_Controller::HTTP_OK);
+       }
+
+       if(empty($this->input->get_post('mobile'))){
+            $output['status'] = 'ERROR';
+            $output['message'] = 'mobile empty';
+            $this->response($output, REST_Controller::HTTP_OK);
+       }
+
+       if(empty($this->input->get_post('city'))){
+            $output['status'] = 'ERROR';
+            $output['message'] = 'city empty';
+            $this->response($output, REST_Controller::HTTP_OK);
+        }
+
+        //$data = map_column_with_array_key($this->table,$this->input->post('detail'));
+        $data = array();       
+        $data['phone'] = $this->input->get_post('mobile');
+        $data['city'] = $this->input->get_post('city');
+        
+        
+       $sql = "select u.* from users u
+            LEFT JOIN users_groups ug ON ug.user_id = u.id
+            where 
+            u.phone = '".$data['phone']."' 
+            AND ug.group_id = ".$user_groups[0]."
+       ";
+       $query = $this->db->query($sql);
+       $output['response'] = $query->row_array();
+       
+        if(isset($output['response']['id'])){
+            //unset($output['response']['username']);
+            unset($output['response']['password']);
+            $output['message'] = 'Record Found!';
+            $this->response($output, REST_Controller::HTTP_OK);
+        }else{
+
+            //$data = array();
+            $data['first_name'] = null;
+            $data['last_name'] = null;
+            $data['email'] = '';            
+            $data['password'] = $data['phone'];
+            //$insert = $this->{$this->model_name}->save($data);
+            $data['username'] = $data['phone'];
+    
+            $user_id = $this->ion_auth->register($data['phone'],$data['password'],$data['email'],$data,array($user_groups[0]));
+            
+
+            $query = $this->db->query($sql);
+            $output['response'] = $query->row_array();
+            unset($output['response']['password']);
+            $output['message'] = 'Record Inserted!';
+            $output['status'] = 'SUCCESS';
+            $this->response($output, REST_Controller::HTTP_OK);
+        }        
+
+        $this->response($output, REST_Controller::HTTP_OK);
+
+    }
+
+
+
+    /**
+     * @SWG\Post(path="/users/add_user",
+     *   tags={"users"},
+     *   summary="Add record as user",
+     *   description="",
+     *   operationId="add_user",
+     *   produces={"application/xml", "application/json"},
+     *   @SWG\Parameter(
+     *     name="first_name",
+     *     in="query",
+     *     description="first name",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *   @SWG\Parameter(
+     *     name="last_name",
+     *     in="query",
+     *     description="last name",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *   @SWG\Parameter(
+     *     name="email",
+     *     in="query",
+     *     description="email",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *   @SWG\Parameter(
+     *     name="password",
+     *     in="query",
+     *     description="The password for login in clear text",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *   @SWG\Parameter(
+     *     name="password_confirm",
+     *     in="query",
+     *     description="password_confirm",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *   @SWG\Parameter(
+     *     name="phone",
+     *     in="query",
+     *     description="phone",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *   @SWG\Parameter(
+     *     name="x-api-key",
+     *     in="header",
+     *     description="anonymous",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *   @SWG\Response(
+     *         response=201,
+     *         description="successful operation",
+     *
+     *     ),
+     *     @SWG\Response(
+     *         response="400",
+     *         description="Invalid status value",
+     *     )
+     * )
+     */
+    public function add_user_post()
+    {
+        
+        //$data = map_column_with_array_key($this->table,$this->input->post('detail'));
+        $data = array();
+        $data['first_name'] = $this->input->get_post('first_name');
+        $data['last_name'] = $this->input->get_post('last_name');
+        $data['email'] = $this->input->get_post('email');
+        $data['phone'] = $this->input->get_post('phone');
+        $data['password'] = $this->input->get_post('password');
+        //$insert = $this->{$this->model_name}->save($data);
+        $data['username'] = $data['email'];
+
+        $user_id = $this->ion_auth->register($data['email'],$data['password'],$data['email'],$data,array(5));
+
+        if($user_id){
+            $this->response(array("status" => TRUE,"user_id" => $user_id));
+        }else{
+            $this->response(array("status" => FALSE), REST_Controller::HTTP_BAD_REQUEST);
+        }
+
+    }
+
+    /**
+     * @SWG\Get(path="/users/product_list",
+     *   tags={"product"},
+     *   summary="get products record",
+     *   description="",
+     *   operationId="product_list",
+     *   produces={"application/xml", "application/json"},    
+     *   @SWG\Parameter(
+     *     name="x-api-key",
+     *     in="header",
+     *     description="anonymous",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *   @SWG\Response(
+     *         response=200,
+     *         description="successful operation",
+     *
+     *     ),
+     *     @SWG\Response(
+     *         response="400",
+     *         description="Invalid status value",
+     *     )
+     * )
+     */
+	 public function product_list_get()
+    {        
+        $this->load->helper('url');
+        $this->db->where("menu_id !=", PRODUCT_MENU);
+        $list = $this->Menus_model->get_liniage_rows(PRODUCT_MENU);
+        //$this->mViewData['groups'] = $this->db->get('groups')->result();
+        //cidb($this->mViewData['list']); exit;
+        //echo "fddfdfdf";
+        //$this->system_message->add_success("nnnnnnnnnnnnn");       
+		$output['message'] = 'product list';
+		$output['status'] = 'SUCCESS';
+        $output['response']  =  $list;     
+
+        $this->response($output, REST_Controller::HTTP_OK);
+        //return $this->mViewData['list'];
+
+    }
+
+    /**
+     * @SWG\Get(path="/users/menu_list",
+     *   tags={"menu"},
+     *   summary="get menus record",
+     *   description="",
+     *   operationId="menu_list",
+     *   produces={"application/xml", "application/json"},    
+     *   @SWG\Parameter(
+     *     name="x-api-key",
+     *     in="header",
+     *     description="anonymous",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *   @SWG\Response(
+     *         response=200,
+     *         description="successful operation",
+     *
+     *     ),
+     *     @SWG\Response(
+     *         response="400",
+     *         description="Invalid status value",
+     *     )
+     * )
+     */
+	 public function menu_list_get()
+     {        
+         $this->load->helper('url');
+         $this->db->where("menu_id !=", FRONT_MENU);
+         $list = $this->Menus_model->get_liniage_rows(FRONT_MENU);
+         //$this->mViewData['groups'] = $this->db->get('groups')->result();
+         //cidb($this->mViewData['list']); exit;
+         //echo "fddfdfdf";
+         //$this->system_message->add_success("nnnnnnnnnnnnn");       
+         $output['message'] = 'pages list';
+         $output['status'] = 'SUCCESS';
+         $output['response']  =  $list;     
+ 
+         $this->response($output, REST_Controller::HTTP_OK);
+         //return $this->mViewData['list'];
+ 
+     }
+     
+     /**
+     * @SWG\Post(path="/users/request_add",
+     *   tags={"users"},
+     *   summary="Request add as request",
+     *   description="",
+     *   operationId="request_add",
+     *   produces={"application/xml", "application/json"},
+     *   @SWG\Parameter(
+     *     name="product_id",
+     *     in="query",
+     *     description="please enter Product Id",
+     *     required=true,
+     *     type="integer"
+     *   ),
+     *   @SWG\Parameter(
+     *     name="user_id",
+     *     in="query",
+     *     description="User Id ",
+     *     required=false,
+     *     type="integer"
+     *   ),
+     *   @SWG\Parameter(
+     *     name="email",
+     *     in="query",
+     *     description="email",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *   @SWG\Parameter(
+     *     name="name",
+     *     in="query",
+     *     description="Name",
+     *     required=false,
+     *     type="string"
+     *   ),
+     *   @SWG\Parameter(
+     *     name="details",
+     *     in="query",
+     *     description="Details",
+     *     required=true,
+     *     type="string"
+     *   ),     *   
+     *   @SWG\Parameter(
+     *     name="x-api-key",
+     *     in="header",
+     *     description="anonymous",
+     *     required=true,
+     *     type="string"
+     *   ),
+     *   @SWG\Response(
+     *         response=201,
+     *         description="successful operation",
+     *
+     *     ),
+     *     @SWG\Response(
+     *         response="400",
+     *         description="Invalid status value",
+     *     )
+     * )
+     */
+    public function request_add_post()
+    {
+        $this->load->model('Inquiry_model');
+        
+        //$data = map_column_with_array_key($this->table,$this->input->post('detail'));
+        $data = array();
+        $data['product_id'] = $this->input->get_post('product_id');
+        $data['user_id'] = $this->input->get_post('user_id');
+        $data['email'] = $this->input->get_post('email');
+        $data['name'] = $this->input->get_post('name');
+        $data['details'] = $this->input->get_post('details');
+        //$insert = $this->{$this->model_name}->save($data);
+        //$data['username'] = $data['email'];
+
+        $request_id = $this->Inquiry_model->save($data);
+
+        if($request_id){
+            $this->response(array("status" => TRUE,"request_id" => $request_id));
+        }else{
+            $this->response(array("status" => FALSE), REST_Controller::HTTP_BAD_REQUEST);
+        }
+
+    }
+}
