@@ -76,7 +76,7 @@ $query_builder = true;
 $db['default'] = array(
     'dsn' => '',
     'hostname' => 'localhost',
-    'username' => 'root', 'password' => 'root', 'database' => ' zp_app',
+    'username' => 'root', 'password' => 'root', 'database' => 'zp_app',
     'dbdriver' => 'mysqli',
     'dbprefix' => '',
     'pconnect' => false,
